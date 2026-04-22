@@ -6,19 +6,21 @@ import MainFocus from "@/components/MainFocus";
 import RightSidebar from "@/components/RightSidebar";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useLeadStore } from "@/stores/useLeadStore";
-import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    useLeadStore.getState().fetchLeads();
+    // Silent fetch
+    useLeadStore.getState().fetchLeads().catch(e => console.error("Home Mount Fetch Error:", e));
   }, []);
 
   useKeyboardShortcuts();
 
-  if (!mounted) return null;
+  if (!mounted) {
+    return <div style={{ background: '#000', height: '100vh' }} />;
+  }
 
   return (
     <div className="app-container">
