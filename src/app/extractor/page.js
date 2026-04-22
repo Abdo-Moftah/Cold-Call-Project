@@ -240,6 +240,8 @@ export default function ExtractorPage() {
             <option value="sky">Sky / Light Beige</option>
             <option value="midnight">Midnight Purple</option>
             <option value="forest">Forest Green</option>
+            <option value="white">Parchment White</option>
+            <option value="ocean">Gradient Wave</option>
           </select>
           <Link href="/" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <ArrowLeft size={16} /> Back to Dashboard

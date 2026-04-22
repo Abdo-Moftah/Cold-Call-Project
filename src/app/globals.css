@@ -86,6 +86,44 @@
   --accent-primary: #10b981;
 }
 
+[data-theme="white"] {
+  --bg-primary: #F5F2E9;
+  --bg-secondary: #EBE8DF;
+  --bg-tertiary: #dfdbd1;
+  --bg-hover: #d3cfc4;
+  
+  --text-primary: #2D344B;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  
+  --border-color: #d1ced1;
+  --accent-primary: #2D344B;
+}
+
+[data-theme="ocean"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: rgba(15, 23, 42, 0.8);
+  --bg-tertiary: rgba(30, 41, 59, 0.8);
+  --bg-hover: rgba(51, 65, 85, 0.8);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  
+  --border-color: rgba(255, 255, 255, 0.1);
+  --accent-primary: #38bdf8;
+  
+  background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e3a8a, #0369a1);
+  background-size: 400% 400%;
+  animation: gradientWave 15s ease infinite;
+}
+
+@keyframes gradientWave {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 /* Premium Thin Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
