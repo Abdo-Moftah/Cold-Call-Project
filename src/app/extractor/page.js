@@ -10,10 +10,14 @@ import { useRouter } from "next/navigation";
 
 export default function ExtractorPage() {
   const router = useRouter();
-  const { addLeads } = useLeadStore();
+  const { addLeads, theme, setTheme } = useLeadStore();
 
   const [keywords, setKeywords] = useState(["restaurant", "gym"]);
   const [keywordInput, setKeywordInput] = useState("");
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
   
   const [locations, setLocations] = useState(["Austin, TX"]);
   const [locationInput, setLocationInput] = useState("");
@@ -225,9 +229,22 @@ export default function ExtractorPage() {
           <MapPin size={24} color="var(--accent-primary)" />
           Google Maps Lead Extractor
         </div>
-        <Link href="/" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <ArrowLeft size={16} /> Back to Dashboard
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <select 
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.4rem 0.6rem', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="default">Default Dark</option>
+            <option value="earth">Earth / Stone</option>
+            <option value="sky">Sky / Light Beige</option>
+            <option value="midnight">Midnight Purple</option>
+            <option value="forest">Forest Green</option>
+          </select>
+          <Link href="/" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <ArrowLeft size={16} /> Back to Dashboard
+          </Link>
+        </div>
       </header>
 
       <section className={styles.panel}>
