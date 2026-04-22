@@ -36,12 +36,7 @@ export default function LeftSidebar() {
 
   useEffect(() => {
     setMounted(true);
-    if (!user) {
-      fetchProfile().then(p => {
-        if (!p) router.push("/login");
-      });
-    }
-  }, [user, fetchProfile, router]);
+  }, []);
 
   if (!mounted) return null;
 
