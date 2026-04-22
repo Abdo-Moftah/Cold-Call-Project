@@ -12,15 +12,12 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
-    // Silent fetch
-    useLeadStore.getState().fetchLeads().catch(e => console.error("Home Mount Fetch Error:", e));
+    useLeadStore.getState().fetchLeads();
   }, []);
 
   useKeyboardShortcuts();
 
-  if (!mounted) {
-    return <div style={{ background: '#000', height: '100vh' }} />;
-  }
+  if (!mounted) return null; // Avoid hydration mismatch on initial render
 
   return (
     <div className="app-container">

@@ -1,33 +1,13 @@
 "use client";
 
 import { useLeadStore } from "@/stores/useLeadStore";
-import { User, Phone, Briefcase, Mail, Tag, ChevronLeft, ChevronRight, CheckCircle2, Clock, Calendar, XCircle, ExternalLink, Copy, Globe, Trash2, Users } from "lucide-react";
+import { User, Phone, Briefcase, Mail, Tag, ChevronLeft, ChevronRight, CheckCircle2, Clock, Calendar, XCircle, ExternalLink, Copy, Globe, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function MainFocus() {
-  const { filteredLeads, currentIndex, nextLead, prevLead, updateLeadStatus, deleteLead, profile } = useLeadStore();
+  const { filteredLeads, currentIndex, nextLead, prevLead, updateLeadStatus, deleteLead } = useLeadStore();
   const leads = filteredLeads();
   const currentLead = leads.length > 0 ? leads[currentIndex] : null;
-
-  const [agents, setAgents] = useState([]);
-
-  useEffect(() => {
-    if (profile?.role === 'admin' || profile?.role === 'supervisor') {
-      supabase.from('profiles').select('id, full_name').then(({ data }) => {
-        if (data) setAgents(data);
-      });
-    }
-  }, [profile]);
-
-  const handleAssignChange = async (agentId) => {
-    if (!currentLead) return;
-    const { error } = await supabase.from('leads').update({ assigned_to: agentId }).eq('id', currentLead.id);
-    if (!error) {
-      useLeadStore.getState().fetchLeads();
-    }
-  };
 
   const handleAction = (status) => {
     if (!currentLead) return;
@@ -71,25 +51,8 @@ export default function MainFocus() {
       
       {/* Top Navigation Bar */}
       <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'none', padding: '1rem 2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            Lead {currentIndex + 1} of {leads.length}
-          </div>
-          { (profile?.role === 'admin' || profile?.role === 'supervisor') && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-tertiary)', padding: '0.25rem 0.75rem', borderRadius: '1rem', border: '1px solid var(--border-color)', fontSize: '0.75rem' }}>
-              <Users size={14} color="var(--text-muted)" />
-              <select 
-                value={currentLead?.assigned_to || ''} 
-                onChange={(e) => handleAssignChange(e.target.value)}
-                style={{ background: 'transparent', color: 'var(--text-primary)', border: 'none', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}
-              >
-                <option value="">Unassigned</option>
-                {agents.map(agent => (
-                  <option key={agent.id} value={agent.id}>{agent.full_name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+          Lead {currentIndex + 1} of {leads.length}
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button 

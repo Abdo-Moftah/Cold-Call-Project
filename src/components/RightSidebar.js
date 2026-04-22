@@ -24,13 +24,9 @@ export default function RightSidebar() {
   }, [theme]);
 
   const filteredLeads = leads.filter((lead) => {
-    const name = lead?.name || '';
-    const company = lead?.company || '';
-    const phone = lead?.phone || '';
-    
-    const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          phone.includes(searchQuery);
+    const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          lead.phone.includes(searchQuery);
     const matchesStatus = statusFilter === 'All' || lead.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -71,7 +67,6 @@ export default function RightSidebar() {
               <option value="sky">Sky / Light Beige</option>
               <option value="midnight">Midnight Purple</option>
               <option value="forest">Forest Green</option>
-              <option value="white">Parchment White</option>
             </select>
           </div>
         </div>
