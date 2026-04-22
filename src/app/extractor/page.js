@@ -17,7 +17,10 @@ export default function ExtractorPage() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    if (profile && profile.role !== 'admin' && profile.role !== 'supervisor') {
+      router.push("/");
+    }
+  }, [theme, profile, router]);
   
   const [locations, setLocations] = useState(["Austin, TX"]);
   const [locationInput, setLocationInput] = useState("");
@@ -241,7 +244,6 @@ export default function ExtractorPage() {
             <option value="midnight">Midnight Purple</option>
             <option value="forest">Forest Green</option>
             <option value="white">Parchment White</option>
-            <option value="ocean">Gradient Wave</option>
           </select>
           <Link href="/" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <ArrowLeft size={16} /> Back to Dashboard

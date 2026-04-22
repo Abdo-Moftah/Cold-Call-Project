@@ -6,18 +6,28 @@ import MainFocus from "@/components/MainFocus";
 import RightSidebar from "@/components/RightSidebar";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useLeadStore } from "@/stores/useLeadStore";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
+  const user = useLeadStore(state => state.user);
+  const fetchProfile = useLeadStore(state => state.fetchProfile);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
-    useLeadStore.getState().fetchLeads();
-  }, []);
+    if (!user) {
+      fetchProfile().then(p => {
+        if (!p) router.push("/login");
+      });
+    } else {
+      useLeadStore.getState().fetchLeads();
+    }
+  }, [user, fetchProfile, router]);
 
   useKeyboardShortcuts();
 
-  if (!mounted) return null; // Avoid hydration mismatch on initial render
+  if (!mounted || !user) return null;
 
   return (
     <div className="app-container">

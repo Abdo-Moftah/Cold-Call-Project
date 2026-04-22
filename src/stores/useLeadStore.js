@@ -6,16 +6,52 @@ export const useLeadStore = create(
   persist(
     (set, get) => ({
   leads: [],
+  user: null,
+  profile: null,
   currentIndex: 0,
   searchQuery: '',
-  statusFilter: 'All', // 'All', 'Not Contacted', 'Contacted', 'Callback', 'Meeting Booked', 'Not Interested'
+  statusFilter: 'All', 
   theme: 'default',
   cheatSheet: 'Common Objections:\n\n"Not Interested":\n"I completely understand, [Name]. Just so I don\'t bother you again, was it bad timing, or are you guys already squared away with [Service]?"\n\n"Send me an email":\n"I can definitely do that. But just to make sure I don\'t send you spam, what specifically are you guys struggling with right now?"',
   isUploading: false,
   selectedIds: [],
   
+  fetchProfile: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      set({ user, profile });
+      return profile;
+    }
+    set({ user: null, profile: null });
+    return null;
+  },
+
+  login: async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    await get().fetchProfile();
+    await get().fetchLeads();
+    return data;
+  },
+
+  logout: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, profile: null, leads: [] });
+  },
+  
   fetchLeads: async () => {
-    const { data: leads, error: leadsError } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+    const profile = get().profile || await get().fetchProfile();
+    if (!profile) return;
+
+    let query = supabase.from('leads').select('*');
+    
+    // If Agent, RLS will handle it, but we can be explicit
+    if (profile.role === 'agent') {
+      query = query.eq('assigned_to', profile.id);
+    }
+    
+    const { data: leads, error: leadsError } = await query.order('created_at', { ascending: false });
     const { data: notes, error: notesError } = await supabase.from('notes').select('*').order('created_at', { ascending: false });
     
     if (leads && !leadsError) {

@@ -114,17 +114,7 @@
   --accent-primary: #38bdf8;
 }
 
-[data-theme="ocean"] body {
-  background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e3a8a, #0369a1) !important;
-  background-size: 400% 400% !important;
-  animation: gradientWave 10s ease infinite !important;
-}
 
-@keyframes gradientWave {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
 
 /* Premium Thin Scrollbar */
 ::-webkit-scrollbar {

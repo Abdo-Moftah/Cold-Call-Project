@@ -68,7 +68,6 @@ export default function RightSidebar() {
               <option value="midnight">Midnight Purple</option>
               <option value="forest">Forest Green</option>
               <option value="white">Parchment White</option>
-              <option value="ocean">Gradient Wave</option>
             </select>
           </div>
         </div>

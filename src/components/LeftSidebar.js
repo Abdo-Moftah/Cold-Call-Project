@@ -1,9 +1,12 @@
 "use client";
 
 import { useLeadStore } from "@/stores/useLeadStore";
-import { Search, Upload, Filter, Users, PhoneCall, Calendar, XCircle, Phone, Download, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { Search, Upload, Filter, Users, PhoneCall, Calendar, XCircle, Phone, Download, Trash2, LogOut, MapPin, BarChart3 } from "lucide-react";
 import Papa from "papaparse";
 import { useRef, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LeftSidebar() {
   const { 
@@ -21,8 +24,29 @@ export default function LeftSidebar() {
     toggleLeadSelection,
     selectAllVisible,
     clearSelection,
-    deleteSelectedLeads
+    deleteSelectedLeads,
+    user,
+    profile,
+    logout,
+    fetchProfile
   } = useLeadStore();
+  
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (!user) {
+      fetchProfile().then(p => {
+        if (!p) router.push("/login");
+      });
+    }
+  }, [user, fetchProfile, router]);
+
+  if (!mounted) return null;
+
+  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor';
+  const isAdmin = profile?.role === 'admin';
   const fileInputRef = useRef(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
 
@@ -144,41 +168,60 @@ export default function LeftSidebar() {
         
         {/* Import & Export & Tools Section */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <div style={{ flex: 1 }}>
-              <input 
-                type="file" 
-                accept=".csv" 
-                style={{ display: 'none' }} 
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-              />
+          {isAdminOrSupervisor && (
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ flex: 1 }}>
+                <input 
+                  type="file" 
+                  accept=".csv" 
+                  style={{ display: 'none' }} 
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                />
+                <button 
+                  className="btn btn-primary" 
+                  style={{ width: '100%', justifyContent: 'center', opacity: isUploading ? 0.7 : 1 }}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  <Upload size={16} className={isUploading ? "spinning" : ""} /> 
+                  {isUploading ? "Uploading..." : "Import CSV"}
+                </button>
+              </div>
               <button 
-                className="btn btn-primary" 
-                style={{ width: '100%', justifyContent: 'center', opacity: isUploading ? 0.7 : 1 }}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
+                className="btn btn-outline" 
+                style={{ padding: '0 0.75rem' }}
+                title="Export updated leads to CSV"
+                onClick={handleExportCSV}
               >
-                <Upload size={16} className={isUploading ? "spinning" : ""} /> 
-                {isUploading ? "Uploading..." : "Import CSV"}
+                <Download size={16} /> Export
               </button>
             </div>
-            <button 
-              className="btn btn-outline" 
-              style={{ padding: '0 0.75rem' }}
-              title="Export updated leads to CSV"
-              onClick={handleExportCSV}
-            >
-              <Download size={16} /> Export
-            </button>
+          )}
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            {isAdminOrSupervisor && (
+              <>
+                <Link href="/extractor" style={{ textDecoration: 'none' }}>
+                  <div className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                    <MapPin size={16} color="var(--accent-primary)" /> Lead Extractor
+                  </div>
+                </Link>
+                <Link href="/performance" style={{ textDecoration: 'none' }}>
+                  <div className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                    <BarChart3 size={16} /> Performance
+                  </div>
+                </Link>
+              </>
+            )}
+            {isAdmin && (
+              <Link href="/team" style={{ textDecoration: 'none' }}>
+                <div className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                  <Users size={16} /> Team Management
+                </div>
+              </Link>
+            )}
           </div>
-          <button 
-            className="btn btn-outline" 
-            style={{ width: '100%', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-            onClick={() => window.location.href = '/extractor'}
-          >
-            <Search size={16} color="var(--accent-primary)" /> Find Leads via Google Maps
-          </button>
         </section>
 
         {/* Dashboard Stats */}
@@ -361,6 +404,21 @@ export default function LeftSidebar() {
           </div>
         </div>
       )}
+
+      <div className="sidebar-footer" style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 600 }}>
+            {profile?.full_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile?.full_name || 'User'}</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{profile?.role || 'Agent'}</div>
+          </div>
+          <button onClick={() => { logout(); router.push("/login"); }} style={{ color: 'var(--text-muted)', padding: '0.5rem' }} title="Logout">
+            <LogOut size={18} />
+          </button>
+        </div>
+      </div>
     </aside>
   );
 }
