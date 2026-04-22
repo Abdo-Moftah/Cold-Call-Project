@@ -6,16 +6,7 @@ import { BarChart3, Users, CheckCircle, XCircle, Calendar, Phone, ArrowLeft, Loa
 import { useRouter } from "next/navigation";
 
 export default function PerformancePage() {
-  const { profile, leads, user, fetchProfile } = useLeadStore();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!user) {
-      fetchProfile().then(p => {
-        if (!p) router.push("/login");
-      });
-    }
-  }, [user, fetchProfile, router]);
+  const { profile, leads } = useLeadStore();
   const [stats, setStats] = useState({
     total: 0,
     contacted: 0,

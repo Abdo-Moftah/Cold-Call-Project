@@ -10,22 +10,11 @@ import { useRouter } from "next/navigation";
 
 export default function ExtractorPage() {
   const router = useRouter();
-  const { addLeads, theme, setTheme, user, profile, fetchProfile } = useLeadStore();
-
-  useEffect(() => {
-    if (!user) {
-      fetchProfile().then(p => {
-        if (!p) router.push("/login");
-      });
-    }
-  }, [user, fetchProfile, router]);
+  const { addLeads, theme, setTheme } = useLeadStore();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    if (profile && profile.role !== 'admin' && profile.role !== 'supervisor') {
-      router.push("/");
-    }
-  }, [theme, profile, router]);
+  }, [theme]);
   const [keywords, setKeywords] = useState(["restaurant", "gym"]);
   const [keywordInput, setKeywordInput] = useState("");
   

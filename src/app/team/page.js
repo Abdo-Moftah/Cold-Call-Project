@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useLeadStore } from "@/stores/useLeadStore";
 import { Users, UserPlus, Shield, User, ArrowLeft, Loader2, CheckCircle2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function TeamPage() {
-  const { profile, leads, selectedIds, clearSelection, user, fetchProfile } = useLeadStore();
+  const { leads, selectedIds, clearSelection } = useLeadStore();
   const router = useRouter();
 
   const [team, setTeam] = useState([]);

@@ -10,24 +10,15 @@ import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-  const user = useLeadStore(state => state.user);
-  const fetchProfile = useLeadStore(state => state.fetchProfile);
-  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
-    if (!user) {
-      fetchProfile().then(p => {
-        if (!p) router.push("/login");
-      });
-    } else {
-      useLeadStore.getState().fetchLeads();
-    }
-  }, [user, fetchProfile, router]);
+    useLeadStore.getState().fetchLeads();
+  }, []);
 
   useKeyboardShortcuts();
 
-  if (!mounted || !user) return null;
+  if (!mounted) return null;
 
   return (
     <div className="app-container">
