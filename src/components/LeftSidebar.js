@@ -142,33 +142,42 @@ export default function LeftSidebar() {
 
       <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         
-        {/* Import & Export Section */}
-        <section style={{ display: 'flex', gap: '0.5rem' }}>
-          <div style={{ flex: 1 }}>
-            <input 
-              type="file" 
-              accept=".csv" 
-              style={{ display: 'none' }} 
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-            />
+        {/* Import & Export & Tools Section */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ flex: 1 }}>
+              <input 
+                type="file" 
+                accept=".csv" 
+                style={{ display: 'none' }} 
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+              />
+              <button 
+                className="btn btn-primary" 
+                style={{ width: '100%', justifyContent: 'center', opacity: isUploading ? 0.7 : 1 }}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                <Upload size={16} className={isUploading ? "spinning" : ""} /> 
+                {isUploading ? "Uploading..." : "Import CSV"}
+              </button>
+            </div>
             <button 
-              className="btn btn-primary" 
-              style={{ width: '100%', justifyContent: 'center', opacity: isUploading ? 0.7 : 1 }}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
+              className="btn btn-outline" 
+              style={{ padding: '0 0.75rem' }}
+              title="Export updated leads to CSV"
+              onClick={handleExportCSV}
             >
-              <Upload size={16} className={isUploading ? "spinning" : ""} /> 
-              {isUploading ? "Uploading to Cloud..." : "Import CSV"}
+              <Download size={16} /> Export
             </button>
           </div>
           <button 
             className="btn btn-outline" 
-            style={{ padding: '0 0.75rem' }}
-            title="Export updated leads to CSV"
-            onClick={handleExportCSV}
+            style={{ width: '100%', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+            onClick={() => window.location.href = '/extractor'}
           >
-            <Download size={16} /> Export
+            <Search size={16} color="var(--accent-primary)" /> Find Leads via Google Maps
           </button>
         </section>
 
