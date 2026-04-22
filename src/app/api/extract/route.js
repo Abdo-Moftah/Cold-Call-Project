@@ -87,6 +87,31 @@ export async function POST(request) {
     }
 
     if (apiErrorMessage && allLeadsMap.size === 0) {
+      if (apiErrorMessage.includes('REQUEST_DENIED') || apiErrorMessage.includes('Billing')) {
+        // Fallback to Demo Mode
+        const dummyLeads = [];
+        for (const loc of locations) {
+          for (const kw of keywords) {
+            for (let i = 0; i < 5; i++) {
+              const id = `demo-${loc}-${kw}-${i}`.replace(/\s+/g, '-');
+              dummyLeads.push({
+                id,
+                name: `Demo ${kw} ${i + 1}`,
+                industry: kw,
+                phone: `+1 555-01${Math.floor(Math.random() * 100)}`,
+                address: `12${i} Demo Avenue, ${loc}`,
+                rating: parseFloat((Math.random() * 2 + 3).toFixed(1)),
+                reviewsCount: Math.floor(Math.random() * 500) + 10,
+                website: i % 2 === 0 ? `https://demo${kw.replace(/\s+/g, '')}${i}.com` : '',
+                googleMapsLink: `https://maps.google.com/?q=Demo+Place`,
+                searchKeyword: kw,
+                searchLocation: loc
+              });
+            }
+          }
+        }
+        return NextResponse.json({ leads: dummyLeads, demoMode: true, demoMessage: "Running in Demo Mode because Google API Billing is not enabled." });
+      }
       return NextResponse.json({ error: apiErrorMessage }, { status: 403 });
     }
 

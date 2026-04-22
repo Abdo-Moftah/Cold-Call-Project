@@ -75,6 +75,10 @@ export default function ExtractorPage() {
         throw new Error(data.error || "Failed to fetch leads from Google Maps");
       }
 
+      if (data.demoMode) {
+        alert(data.demoMessage || "Running in Demo Mode");
+      }
+
       setResults(data.leads || []);
     } catch (err) {
       console.error(err);
@@ -126,11 +130,21 @@ export default function ExtractorPage() {
   };
 
   const handleExportCSV = () => {
-    if (selectedIds.length === 0) return;
+    let dataToExport = [];
     
-    const dataToExport = filteredResults
-      .filter(r => selectedIds.includes(r.id))
-      .map(r => ({
+    if (selectedIds.length > 0) {
+      dataToExport = filteredResults.filter(r => selectedIds.includes(r.id));
+    } else {
+      const limitStr = window.prompt(`How many leads do you want to export? (Max: ${filteredResults.length})`, filteredResults.length);
+      if (!limitStr) return; // User cancelled
+      const limit = parseInt(limitStr);
+      if (isNaN(limit) || limit <= 0) return alert("Please enter a valid number.");
+      dataToExport = filteredResults.slice(0, limit);
+    }
+
+    if (dataToExport.length === 0) return alert("No leads to export.");
+    
+    const formattedExport = dataToExport.map(r => ({
         "Business Name": r.name,
         "Industry": r.industry,
         "Phone": r.phone,
@@ -143,7 +157,7 @@ export default function ExtractorPage() {
         "Search Location": r.searchLocation
       }));
 
-    const csv = Papa.unparse(dataToExport);
+    const csv = Papa.unparse(formattedExport);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -183,6 +197,8 @@ export default function ExtractorPage() {
                 value={keywordInput}
                 onChange={(e) => setKeywordInput(e.target.value)}
                 onKeyDown={(e) => handleAddTag(e, "keyword")}
+                autoComplete="on"
+                autoCorrect="on"
               />
             </div>
           </div>
@@ -202,6 +218,8 @@ export default function ExtractorPage() {
                 value={locationInput}
                 onChange={(e) => setLocationInput(e.target.value)}
                 onKeyDown={(e) => handleAddTag(e, "location")}
+                autoComplete="on"
+                autoCorrect="on"
               />
             </div>
           </div>
@@ -241,8 +259,8 @@ export default function ExtractorPage() {
           </h2>
           {filteredResults.length > 0 && (
             <div className={styles.bulkActions}>
-              <button className="btn btn-outline" onClick={handleExportCSV} disabled={selectedIds.length === 0}>
-                <Download size={16} /> Export CSV ({selectedIds.length})
+              <button className="btn btn-outline" onClick={handleExportCSV}>
+                <Download size={16} /> {selectedIds.length > 0 ? `Export Selected (${selectedIds.length})` : 'Export Specific Number'}
               </button>
               <button className="btn btn-primary" onClick={handleImport} disabled={selectedIds.length === 0}>
                 Import to Call Tool ({selectedIds.length})
