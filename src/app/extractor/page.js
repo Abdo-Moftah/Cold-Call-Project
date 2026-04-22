@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLeadStore } from "@/stores/useLeadStore";
 import { ArrowLeft, Search, MapPin, Briefcase, Star, Globe, Phone, ExternalLink, Download, CheckSquare, Square, X, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -18,6 +18,10 @@ export default function ExtractorPage() {
   const [locations, setLocations] = useState(["Austin, TX"]);
   const [locationInput, setLocationInput] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [isTypingLocation, setIsTypingLocation] = useState(false);
+  
+  const suggestionsRef = useRef(null);
+  const debounceTimer = useRef(null);
 
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState([]);
@@ -27,6 +31,16 @@ export default function ExtractorPage() {
   const [filterWebsite, setFilterWebsite] = useState("any"); // "any", "yes", "no"
   const [minReviews, setMinReviews] = useState("");
   const [minRating, setMinRating] = useState("");
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+        setLocationSuggestions([]);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleAddTag = (e, type) => {
     if (e.key === "Enter" && e.target.value.trim() !== "") {
@@ -41,6 +55,7 @@ export default function ExtractorPage() {
           setLocations([...locations, e.target.value.trim()]);
         }
         setLocationInput("");
+        setLocationSuggestions([]);
       }
     }
   };
@@ -53,22 +68,29 @@ export default function ExtractorPage() {
     }
   };
 
-  const handleLocationChange = async (e) => {
+  const handleLocationChange = (e) => {
     const val = e.target.value;
     setLocationInput(val);
     
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
     if (val.length > 2) {
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=5`);
-        const data = await res.json();
-        // Remove duplicates from API
-        const uniqueNames = [...new Set(data.map(d => d.display_name))];
-        setLocationSuggestions(uniqueNames);
-      } catch (err) {
-        console.error("Autocomplete failed", err);
-      }
+      setIsTypingLocation(true);
+      debounceTimer.current = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=5`);
+          const data = await res.json();
+          const uniqueNames = [...new Set(data.map(d => d.display_name))];
+          setLocationSuggestions(uniqueNames);
+        } catch (err) {
+          console.error("Autocomplete failed", err);
+        } finally {
+          setIsTypingLocation(false);
+        }
+      }, 400); // 400ms debounce
     } else {
       setLocationSuggestions([]);
+      setIsTypingLocation(false);
     }
   };
 
@@ -251,17 +273,54 @@ export default function ExtractorPage() {
                   autoCorrect="off"
                   style={{ width: '100%' }}
                 />
-                {locationSuggestions.length > 0 && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 10, marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                { (locationSuggestions.length > 0 || isTypingLocation) && (
+                  <div 
+                    ref={suggestionsRef}
+                    style={{ 
+                      position: 'absolute', 
+                      top: '100%', 
+                      left: 0, 
+                      right: 0, 
+                      background: 'var(--bg-secondary)', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '8px', 
+                      zIndex: 100, 
+                      marginTop: '8px', 
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                      overflow: 'hidden',
+                      backdropFilter: 'blur(10px)'
+                    }}>
+                    {isTypingLocation && (
+                      <div style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                         <Loader2 size={14} className={styles.spinning} style={{ display: 'inline', marginRight: '6px' }} />
+                         Searching locations...
+                      </div>
+                    )}
                     {locationSuggestions.map((sug, i) => (
                       <div 
                         key={i} 
                         onClick={() => selectLocationSuggestion(sug)}
-                        style={{ padding: '0.5rem', fontSize: '0.8rem', cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }}
-                        onMouseEnter={(e) => e.target.style.background = 'var(--bg-hover)'}
-                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                        style={{ 
+                          padding: '0.75rem 1rem', 
+                          fontSize: '0.85rem', 
+                          cursor: 'pointer', 
+                          borderBottom: i === locationSuggestions.length - 1 ? 'none' : '1px solid var(--border-color)',
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'var(--bg-hover)';
+                          e.currentTarget.style.paddingLeft = '1.25rem';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                          e.currentTarget.style.paddingLeft = '1rem';
+                        }}
                       >
-                        {sug}
+                        <MapPin size={12} color="var(--text-muted)" />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sug}</span>
                       </div>
                     ))}
                   </div>
