@@ -112,10 +112,12 @@
   
   --border-color: rgba(255, 255, 255, 0.1);
   --accent-primary: #38bdf8;
-  
-  background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e3a8a, #0369a1);
-  background-size: 400% 400%;
-  animation: gradientWave 15s ease infinite;
+}
+
+[data-theme="ocean"] body {
+  background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #1e3a8a, #0369a1) !important;
+  background-size: 400% 400% !important;
+  animation: gradientWave 10s ease infinite !important;
 }
 
 @keyframes gradientWave {
