@@ -10,10 +10,15 @@ import { useRouter } from "next/navigation";
 
 export default function ExtractorPage() {
   const router = useRouter();
-  const { addLeads, theme, setTheme } = useLeadStore();
+  const { addLeads, theme, setTheme, user, profile, fetchProfile } = useLeadStore();
 
-  const [keywords, setKeywords] = useState(["restaurant", "gym"]);
-  const [keywordInput, setKeywordInput] = useState("");
+  useEffect(() => {
+    if (!user) {
+      fetchProfile().then(p => {
+        if (!p) router.push("/login");
+      });
+    }
+  }, [user, fetchProfile, router]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -21,6 +26,8 @@ export default function ExtractorPage() {
       router.push("/");
     }
   }, [theme, profile, router]);
+  const [keywords, setKeywords] = useState(["restaurant", "gym"]);
+  const [keywordInput, setKeywordInput] = useState("");
   
   const [locations, setLocations] = useState(["Austin, TX"]);
   const [locationInput, setLocationInput] = useState("");

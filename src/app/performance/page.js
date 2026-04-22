@@ -3,11 +3,19 @@
 import { useEffect, useState } from "react";
 import { useLeadStore } from "@/stores/useLeadStore";
 import { BarChart3, Users, CheckCircle, XCircle, Calendar, Phone, ArrowLeft, Loader2 } from "lucide-react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 export default function PerformancePage() {
-  const { profile, leads } = useLeadStore();
+  const { profile, leads, user, fetchProfile } = useLeadStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user) {
+      fetchProfile().then(p => {
+        if (!p) router.push("/login");
+      });
+    }
+  }, [user, fetchProfile, router]);
   const [stats, setStats] = useState({
     total: 0,
     contacted: 0,

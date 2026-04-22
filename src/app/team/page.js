@@ -3,11 +3,19 @@
 import { useEffect, useState } from "react";
 import { useLeadStore } from "@/stores/useLeadStore";
 import { Users, UserPlus, Shield, User, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 export default function TeamPage() {
-  const { profile, leads, selectedIds, clearSelection } = useLeadStore();
+  const { profile, leads, selectedIds, clearSelection, user, fetchProfile } = useLeadStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user) {
+      fetchProfile().then(p => {
+        if (!p) router.push("/login");
+      });
+    }
+  }, [user, fetchProfile, router]);
   const [team, setTeam] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAssigning, setIsAssigning] = useState(false);
