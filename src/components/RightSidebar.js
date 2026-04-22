@@ -24,9 +24,13 @@ export default function RightSidebar() {
   }, [theme]);
 
   const filteredLeads = leads.filter((lead) => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          lead.phone.includes(searchQuery);
+    const name = lead?.name || '';
+    const company = lead?.company || '';
+    const phone = lead?.phone || '';
+    
+    const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          phone.includes(searchQuery);
     const matchesStatus = statusFilter === 'All' || lead.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
