@@ -15,6 +15,7 @@ export async function POST(request) {
     }
 
     const allLeadsMap = new Map();
+    let apiErrorMessage = null;
 
     // We fetch combinations sequentially to avoid rate limiting and overloading
     for (const location of locations) {
@@ -28,7 +29,13 @@ export async function POST(request) {
           const data = await res.json();
           
           if (!res.ok || data.status !== 'OK') {
-            console.error(`Google API Error for "${query}":`, data.error_message || data.status);
+            const errorMsg = data.error_message || data.status;
+            console.error(`Google API Error for "${query}":`, errorMsg);
+            
+            if (data.status === 'REQUEST_DENIED') {
+              apiErrorMessage = `Google API Error: ${errorMsg} (Please check your API key and ensure Billing is enabled in Google Cloud Console)`;
+              break; // Stop fetching further combinations if the key is denied
+            }
             continue; // Skip this combination and try the next
           }
 
@@ -76,6 +83,11 @@ export async function POST(request) {
           console.error(`Fetch error for "${query}":`, fetchError);
         }
       }
+      if (apiErrorMessage) break; // Break outer loop if key is denied
+    }
+
+    if (apiErrorMessage && allLeadsMap.size === 0) {
+      return NextResponse.json({ error: apiErrorMessage }, { status: 403 });
     }
 
     const results = Array.from(allLeadsMap.values());

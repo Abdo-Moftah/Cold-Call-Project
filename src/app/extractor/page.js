@@ -72,13 +72,13 @@ export default function ExtractorPage() {
       const data = await res.json();
       
       if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch leads");
+        throw new Error(data.error || "Failed to fetch leads from Google Maps");
       }
 
       setResults(data.leads || []);
     } catch (err) {
       console.error(err);
-      alert("Search failed. Ensure your Google Maps API Key is set in .env.local.");
+      alert(err.message || "Search failed. Ensure your Google Maps API Key is set and billing is enabled.");
     } finally {
       setIsSearching(false);
     }
