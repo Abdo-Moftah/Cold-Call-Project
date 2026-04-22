@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLeadStore } from "@/stores/useLeadStore";
 import { BarChart3, Users, CheckCircle, XCircle, Calendar, Phone, ArrowLeft, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function PerformancePage() {
   const { profile, leads } = useLeadStore();
