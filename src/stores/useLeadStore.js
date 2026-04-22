@@ -17,14 +17,31 @@ export const useLeadStore = create(
   selectedIds: [],
   
   fetchProfile: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw authError || new Error("No user");
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+        // Fallback profile if DB fails but user exists
+        const fallback = { id: user.id, role: 'agent', full_name: user.email?.split('@')[0] };
+        set({ user, profile: fallback });
+        return fallback;
+      }
+
       set({ user, profile });
       return profile;
+    } catch (err) {
+      console.error("Auth initialization failed:", err);
+      set({ user: null, profile: null });
+      return null;
     }
-    set({ user: null, profile: null });
-    return null;
   },
 
   login: async (email, password) => {
