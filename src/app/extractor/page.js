@@ -17,6 +17,7 @@ export default function ExtractorPage() {
   
   const [locations, setLocations] = useState(["Austin, TX"]);
   const [locationInput, setLocationInput] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
 
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState([]);
@@ -50,6 +51,33 @@ export default function ExtractorPage() {
     } else {
       setLocations(locations.filter((_, index) => index !== indexToRemove));
     }
+  };
+
+  const handleLocationChange = async (e) => {
+    const val = e.target.value;
+    setLocationInput(val);
+    
+    if (val.length > 2) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=5`);
+        const data = await res.json();
+        // Remove duplicates from API
+        const uniqueNames = [...new Set(data.map(d => d.display_name))];
+        setLocationSuggestions(uniqueNames);
+      } catch (err) {
+        console.error("Autocomplete failed", err);
+      }
+    } else {
+      setLocationSuggestions([]);
+    }
+  };
+
+  const selectLocationSuggestion = (suggestion) => {
+    if (!locations.includes(suggestion)) {
+      setLocations([...locations, suggestion]);
+    }
+    setLocationInput("");
+    setLocationSuggestions([]);
   };
 
   const handleSearch = async () => {
@@ -212,15 +240,33 @@ export default function ExtractorPage() {
                   {tag} <button onClick={() => removeTag("location", i)}><X size={12} /></button>
                 </div>
               ))}
-              <input
-                className={styles.tagInput}
-                placeholder="Type and press enter..."
-                value={locationInput}
-                onChange={(e) => setLocationInput(e.target.value)}
-                onKeyDown={(e) => handleAddTag(e, "location")}
-                autoComplete="on"
-                autoCorrect="on"
-              />
+              <div style={{ position: 'relative', flex: 1, minWidth: '120px' }}>
+                <input
+                  className={styles.tagInput}
+                  placeholder="Type location (e.g. New York)..."
+                  value={locationInput}
+                  onChange={handleLocationChange}
+                  onKeyDown={(e) => handleAddTag(e, "location")}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  style={{ width: '100%' }}
+                />
+                {locationSuggestions.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 10, marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                    {locationSuggestions.map((sug, i) => (
+                      <div 
+                        key={i} 
+                        onClick={() => selectLocationSuggestion(sug)}
+                        style={{ padding: '0.5rem', fontSize: '0.8rem', cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }}
+                        onMouseEnter={(e) => e.target.style.background = 'var(--bg-hover)'}
+                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                      >
+                        {sug}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -100,7 +100,10 @@ export const useLeadStore = create(
             console.error("Error inserting lead:", error);
             continue;
           }
-          if (data) targetLeadId = data.id;
+          if (data) {
+            targetLeadId = data.id;
+            existingLeads.push({ ...data, notes: [] }); // Track it so duplicates in the same batch are caught
+          }
         }
 
         if (targetLeadId && newLead.notes && newLead.notes.length > 0) {
