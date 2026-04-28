@@ -2,7 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useLeadStore } from "@/stores/useLeadStore";
-import { ArrowLeft, Search, MapPin, Briefcase, Star, Globe, Phone, ExternalLink, Download, CheckSquare, Square, X, Loader2 } from "lucide-react";
+import { 
+  ArrowLeft, Search, MapPin, Briefcase, Star, Globe, Phone, 
+  ExternalLink, Download, CheckSquare, Square, X, Loader2, 
+  Filter, LayoutGrid, List, MoreVertical, CheckCircle2, AlertCircle
+} from "lucide-react";
 import Link from "next/link";
 import Papa from "papaparse";
 import styles from "./page.module.css";
@@ -15,10 +19,11 @@ export default function ExtractorPage() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
-  const [keywords, setKeywords] = useState(["restaurant", "gym"]);
+
+  // Search Inputs
+  const [keywords, setKeywords] = useState(["Web Design", "Software"]);
   const [keywordInput, setKeywordInput] = useState("");
-  
-  const [locations, setLocations] = useState(["Austin, TX"]);
+  const [locations, setLocations] = useState(["Cairo, Egypt"]);
   const [locationInput, setLocationInput] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [isTypingLocation, setIsTypingLocation] = useState(false);
@@ -26,14 +31,17 @@ export default function ExtractorPage() {
   const suggestionsRef = useRef(null);
   const debounceTimer = useRef(null);
 
+  // Results State
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [viewMode, setViewMode] = useState("table"); // "table" or "grid"
 
-  // Filters
-  const [filterWebsite, setFilterWebsite] = useState("any"); // "any", "yes", "no"
+  // UI Filters
+  const [filterWebsite, setFilterWebsite] = useState("any");
   const [minReviews, setMinReviews] = useState("");
   const [minRating, setMinRating] = useState("");
+  const [maxResultsLimit, setMaxResultsLimit] = useState("50");
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -48,15 +56,12 @@ export default function ExtractorPage() {
   const handleAddTag = (e, type) => {
     if (e.key === "Enter" && e.target.value.trim() !== "") {
       e.preventDefault();
+      const val = e.target.value.trim();
       if (type === "keyword") {
-        if (!keywords.includes(e.target.value.trim())) {
-          setKeywords([...keywords, e.target.value.trim()]);
-        }
+        if (!keywords.includes(val)) setKeywords([...keywords, val]);
         setKeywordInput("");
       } else {
-        if (!locations.includes(e.target.value.trim())) {
-          setLocations([...locations, e.target.value.trim()]);
-        }
+        if (!locations.includes(val)) setLocations([...locations, val]);
         setLocationInput("");
         setLocationSuggestions([]);
       }
@@ -74,35 +79,23 @@ export default function ExtractorPage() {
   const handleLocationChange = (e) => {
     const val = e.target.value;
     setLocationInput(val);
-    
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-
     if (val.length > 2) {
       setIsTypingLocation(true);
       debounceTimer.current = setTimeout(async () => {
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&addressdetails=1&limit=5`);
           const data = await res.json();
-          const uniqueNames = [...new Set(data.map(d => d.display_name))];
-          setLocationSuggestions(uniqueNames);
+          setLocationSuggestions(data.map(d => d.display_name));
         } catch (err) {
-          console.error("Autocomplete failed", err);
+          console.error(err);
         } finally {
           setIsTypingLocation(false);
         }
-      }, 400); // 400ms debounce
+      }, 400);
     } else {
       setLocationSuggestions([]);
-      setIsTypingLocation(false);
     }
-  };
-
-  const selectLocationSuggestion = (suggestion) => {
-    if (!locations.includes(suggestion)) {
-      setLocations([...locations, suggestion]);
-    }
-    setLocationInput("");
-    setLocationSuggestions([]);
   };
 
   const handleSearch = async () => {
@@ -119,31 +112,25 @@ export default function ExtractorPage() {
       const res = await fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords, locations }),
+        body: JSON.stringify({ 
+          keywords, 
+          locations, 
+          maxResults: parseInt(maxResultsLimit),
+          filterWebsite
+        }),
       });
 
       const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch leads from Google Maps");
-      }
-
-      if (data.demoMode) {
-        alert(data.demoMessage || "Running in Demo Mode");
-      }
-
+      if (!res.ok) throw new Error(data.error || "Extraction failed");
       setResults(data.leads || []);
     } catch (err) {
-      console.error(err);
-      alert(err.message || "Search failed. Ensure your Google Maps API Key is set and billing is enabled.");
+      alert(err.message);
     } finally {
       setIsSearching(false);
     }
   };
 
   const filteredResults = results.filter(lead => {
-    if (filterWebsite === "yes" && !lead.website) return false;
-    if (filterWebsite === "no" && lead.website) return false;
     if (minReviews && lead.reviewsCount < parseInt(minReviews)) return false;
     if (minRating && lead.rating < parseFloat(minRating)) return false;
     return true;
@@ -161,310 +148,302 @@ export default function ExtractorPage() {
     }
   };
 
-  const handleImport = async () => {
-    if (selectedIds.length === 0) return;
-    
-    const leadsToImport = filteredResults
-      .filter(r => selectedIds.includes(r.id))
-      .map(r => ({
-        name: r.name,
-        company: r.name,
-        industry: r.industry,
-        phone: r.phone || "No Phone",
-        email: "", // Maps API doesn't provide email easily
-        website: r.website,
-        socialLink: r.googleMapsLink, // Use GMaps as social link
-        tags: ["Extracted", r.searchKeyword, r.searchLocation],
-      }));
-
-    await addLeads(leadsToImport);
-    alert(`Successfully imported ${leadsToImport.length} leads into Outreach OS!`);
-    router.push("/");
-  };
-
   const handleExportCSV = () => {
-    let dataToExport = [];
-    
-    if (selectedIds.length > 0) {
-      dataToExport = filteredResults.filter(r => selectedIds.includes(r.id));
-    } else {
-      const limitStr = window.prompt(`How many leads do you want to export? (Max: ${filteredResults.length})`, filteredResults.length);
-      if (!limitStr) return; // User cancelled
-      const limit = parseInt(limitStr);
-      if (isNaN(limit) || limit <= 0) return alert("Please enter a valid number.");
-      dataToExport = filteredResults.slice(0, limit);
-    }
+    const dataToExport = selectedIds.length > 0 
+      ? filteredResults.filter(r => selectedIds.includes(r.id))
+      : filteredResults;
 
-    if (dataToExport.length === 0) return alert("No leads to export.");
-    
-    const formattedExport = dataToExport.map(r => ({
-        "Business Name": r.name,
-        "Industry": r.industry,
-        "Phone": r.phone,
-        "Rating": r.rating,
-        "Reviews": r.reviewsCount,
-        "Website": r.website,
-        "Address": r.address,
-        "Google Maps Link": r.googleMapsLink,
-        "Search Keyword": r.searchKeyword,
-        "Search Location": r.searchLocation
-      }));
+    if (dataToExport.length === 0) return alert("No results to export");
 
-    const csv = Papa.unparse(formattedExport);
+    const formatted = dataToExport.map(r => ({
+      "Business Name": r.name,
+      "Industry": r.industry,
+      "Phone": r.phone,
+      "Rating": r.rating,
+      "Reviews": r.reviewsCount,
+      "Website": r.website,
+      "Address": r.address,
+      "Google Maps Link": r.googleMapsLink
+    }));
+
+    const csv = Papa.unparse(formatted);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Maps_Leads_Export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
+    link.download = `leads_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    document.body.removeChild(link);
+  };
+
+  const handleImportToCRM = async () => {
+    const dataToImport = selectedIds.length > 0 
+      ? filteredResults.filter(r => selectedIds.includes(r.id))
+      : filteredResults;
+
+    if (dataToImport.length === 0) return alert("No leads to import");
+
+    const formattedLeads = dataToImport.map(r => ({
+      name: r.name,
+      company: r.name, // Usually the business name is both name and company for local businesses
+      phone: r.phone || 'No Phone',
+      email: '',
+      socialLink: r.googleMapsLink,
+      website: r.website,
+      tags: [r.industry],
+      notes: [
+        { content: `Address: ${r.address}\nRating: ${r.rating} stars (${r.reviewsCount} reviews)` }
+      ]
+    }));
+
+    try {
+      await addLeads(formattedLeads);
+      alert(`Successfully imported ${formattedLeads.length} leads to your Call Tool!`);
+      router.push('/');
+    } catch (err) {
+      alert("Failed to import leads. Check console.");
+      console.error(err);
+    }
   };
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <div className={styles.title}>
-          <MapPin size={24} color="var(--accent-primary)" />
-          Google Maps Lead Extractor
+    <div className={styles.dashboard}>
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarHeader}>
+          <div className={styles.logo}>
+            <div className={styles.logoIcon}><MapPin size={20} /></div>
+            <span>LeadExtractor</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <select 
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.4rem 0.6rem', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
-          >
-            <option value="default">Default Dark</option>
-            <option value="earth">Earth / Stone</option>
-            <option value="sky">Sky / Light Beige</option>
-            <option value="midnight">Midnight Purple</option>
-            <option value="forest">Forest Green</option>
-            <option value="white">Parchment White</option>
-          </select>
-          <Link href="/" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <ArrowLeft size={16} /> Back to Dashboard
+        
+        <nav className={styles.nav}>
+          <div className={styles.navItemActive}>
+            <LayoutGrid size={18} />
+            <span>Dashboard</span>
+          </div>
+          <Link href="/" className={styles.navItem}>
+            <ArrowLeft size={18} />
+            <span>Back Home</span>
           </Link>
-        </div>
-      </header>
+        </nav>
 
-      <section className={styles.panel}>
-        <div className={styles.searchGrid}>
-          {/* Keywords Input */}
-          <div className={styles.inputGroup}>
-            <label className={styles.label}><Briefcase size={14} style={{display:'inline', marginRight: 4}}/> Keywords / Industries</label>
-            <div className={styles.tagInputWrapper}>
-              {keywords.map((tag, i) => (
-                <div key={i} className={styles.tag}>
-                  {tag} <button onClick={() => removeTag("keyword", i)}><X size={12} /></button>
+        <div className={styles.sidebarFooter}>
+           <div className={styles.themeSelector}>
+             <label>Theme</label>
+             <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+               <option value="default">Midnight</option>
+               <option value="earth">Earth</option>
+               <option value="sky">Sky</option>
+               <option value="midnight">Purple</option>
+               <option value="white">Parchment</option>
+             </select>
+           </div>
+        </div>
+      </aside>
+
+      <main className={styles.main}>
+        <header className={styles.topBar}>
+          <div className={styles.pageTitle}>
+            <h1>Maps Extraction Dashboard</h1>
+            <p>Scrape business leads directly from Google Maps</p>
+          </div>
+          <div className={styles.topActions}>
+            <button 
+              className={styles.extractBtn} 
+              style={{ padding: '0.5rem 1rem', background: 'var(--accent-primary)', display: 'flex', gap: '0.5rem', alignItems: 'center' }}
+              onClick={handleImportToCRM}
+              disabled={isSearching || filteredResults.length === 0}
+            >
+              <Phone size={16} />
+              Import to Call Tool
+            </button>
+            <button className={styles.iconBtn} title="Download CSV" onClick={handleExportCSV}>
+              <Download size={20} />
+            </button>
+          </div>
+        </header>
+
+        <section className={styles.content}>
+          <div className={styles.configCard}>
+            <div className={styles.inputGrid}>
+              <div className={styles.inputBox}>
+                <label><Briefcase size={14} /> Industries</label>
+                <div className={styles.tagList}>
+                  {keywords.map((k, i) => (
+                    <span key={i} className={styles.tag}>{k} <X size={12} onClick={() => removeTag("keyword", i)} /></span>
+                  ))}
+                  <input 
+                    placeholder="e.g. Restaurants" 
+                    value={keywordInput}
+                    onChange={(e) => setKeywordInput(e.target.value)}
+                    onKeyDown={(e) => handleAddTag(e, "keyword")}
+                  />
                 </div>
-              ))}
-              <input
-                className={styles.tagInput}
-                placeholder="Type and press enter..."
-                value={keywordInput}
-                onChange={(e) => setKeywordInput(e.target.value)}
-                onKeyDown={(e) => handleAddTag(e, "keyword")}
-                autoComplete="on"
-                autoCorrect="on"
-              />
+              </div>
+
+              <div className={styles.inputBox}>
+                <label><MapPin size={14} /> Locations</label>
+                <div className={styles.tagList}>
+                  {locations.map((l, i) => (
+                    <span key={i} className={styles.tag}>{l} <X size={12} onClick={() => removeTag("location", i)} /></span>
+                  ))}
+                  <div style={{position:'relative', flex:1}}>
+                    <input 
+                      placeholder="e.g. London" 
+                      value={locationInput}
+                      onChange={handleLocationChange}
+                      onKeyDown={(e) => handleAddTag(e, "location")}
+                    />
+                    {locationSuggestions.length > 0 && (
+                      <div className={styles.suggestions} ref={suggestionsRef}>
+                        {locationSuggestions.map((s, i) => (
+                          <div key={i} onClick={() => { setLocations([...locations, s]); setLocationInput(""); setLocationSuggestions([]); }}>{s}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.configFooter}>
+              <div className={styles.filterBar}>
+                <div className={styles.filter}>
+                  <span>Website Requirement:</span>
+                  <select value={filterWebsite} onChange={(e) => setFilterWebsite(e.target.value)}>
+                    <option value="any">Any (Fetch All)</option>
+                    <option value="yes">Required (Has Website)</option>
+                    <option value="no">None (No Website)</option>
+                  </select>
+                </div>
+                <div className={styles.filter}>
+                  <span>Min Rating:</span>
+                  <input type="number" step="0.1" value={minRating} onChange={(e) => setMinRating(e.target.value)} style={{width: '60px'}} />
+                </div>
+                <div className={styles.filter}>
+                  <span>Max Results/Search:</span>
+                  <input type="number" step="10" value={maxResultsLimit} onChange={(e) => setMaxResultsLimit(e.target.value)} style={{width: '70px'}} />
+                </div>
+              </div>
+              <button 
+                className={styles.extractBtn} 
+                onClick={handleSearch} 
+                disabled={isSearching}
+              >
+                {isSearching ? <Loader2 className={styles.spin} /> : <Search size={18} />}
+                {isSearching ? "Extracting..." : "Start Extraction"}
+              </button>
             </div>
           </div>
 
-          {/* Locations Input */}
-          <div className={styles.inputGroup}>
-            <label className={styles.label}><MapPin size={14} style={{display:'inline', marginRight: 4}}/> Locations</label>
-            <div className={styles.tagInputWrapper}>
-              {locations.map((tag, i) => (
-                <div key={i} className={styles.tag}>
-                  {tag} <button onClick={() => removeTag("location", i)}><X size={12} /></button>
-                </div>
-              ))}
-              <div style={{ position: 'relative', flex: 1, minWidth: '120px' }}>
-                <input
-                  className={styles.tagInput}
-                  placeholder="Type location (e.g. New York)..."
-                  value={locationInput}
-                  onChange={handleLocationChange}
-                  onKeyDown={(e) => handleAddTag(e, "location")}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  style={{ width: '100%' }}
-                />
-                { (locationSuggestions.length > 0 || isTypingLocation) && (
-                  <div 
-                    ref={suggestionsRef}
-                    style={{ 
-                      position: 'absolute', 
-                      top: '100%', 
-                      left: 0, 
-                      right: 0, 
-                      background: 'var(--bg-secondary)', 
-                      border: '1px solid var(--border-color)', 
-                      borderRadius: '8px', 
-                      zIndex: 100, 
-                      marginTop: '8px', 
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                      overflow: 'hidden',
-                      backdropFilter: 'blur(10px)'
-                    }}>
-                    {isTypingLocation && (
-                      <div style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                         <Loader2 size={14} className={styles.spinning} style={{ display: 'inline', marginRight: '6px' }} />
-                         Searching locations...
-                      </div>
-                    )}
-                    {locationSuggestions.map((sug, i) => (
-                      <div 
-                        key={i} 
-                        onClick={() => selectLocationSuggestion(sug)}
-                        style={{ 
-                          padding: '0.75rem 1rem', 
-                          fontSize: '0.85rem', 
-                          cursor: 'pointer', 
-                          borderBottom: i === locationSuggestions.length - 1 ? 'none' : '1px solid var(--border-color)',
-                          transition: 'all 0.2s ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--bg-hover)';
-                          e.currentTarget.style.paddingLeft = '1.25rem';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                          e.currentTarget.style.paddingLeft = '1rem';
-                        }}
-                      >
-                        <MapPin size={12} color="var(--text-muted)" />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sug}</span>
+          <div className={styles.resultsPanel}>
+            <div className={styles.resultsHeader}>
+              <div className={styles.stats}>
+                <h2>Found Leads</h2>
+                <span>{filteredResults.length} businesses extracted</span>
+              </div>
+              <div className={styles.viewToggle}>
+                <button className={viewMode === 'table' ? styles.activeView : ''} onClick={() => setViewMode('table')}><List size={18}/></button>
+                <button className={viewMode === 'grid' ? styles.activeView : ''} onClick={() => setViewMode('grid')}><LayoutGrid size={18}/></button>
+              </div>
+            </div>
+
+            {isSearching && results.length === 0 && (
+              <div className={styles.loadingState}>
+                <Loader2 size={48} className={styles.spin} />
+                <h3>Initializing Browser...</h3>
+                <p>We're opening Google Maps to find the best leads for you.</p>
+              </div>
+            )}
+
+            {!isSearching && results.length === 0 && (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyIcon}><Search size={40} /></div>
+                <h3>No Leads Yet</h3>
+                <p>Configure your industries and locations to start extracting.</p>
+              </div>
+            )}
+
+            {filteredResults.length > 0 && (
+              <div className={viewMode === 'table' ? styles.tableContainer : styles.gridContainer}>
+                {viewMode === 'table' ? (
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th onClick={selectAll} className={styles.checkboxCell}>
+                          {selectedIds.length === filteredResults.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                        </th>
+                        <th>Business Name</th>
+                        <th>Category</th>
+                        <th>Phone</th>
+                        <th>Rating</th>
+                        <th>Website</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredResults.map(r => (
+                        <tr key={r.id} className={selectedIds.includes(r.id) ? styles.selectedRow : ''}>
+                          <td onClick={() => toggleSelection(r.id)} className={styles.checkboxCell}>
+                            {selectedIds.includes(r.id) ? <CheckSquare size={18} color="var(--accent-primary)" /> : <Square size={18} />}
+                          </td>
+                          <td>
+                            <div className={styles.nameCell}>
+                              <strong>{r.name}</strong>
+                              <span className={styles.address}>{r.address}</span>
+                            </div>
+                          </td>
+                          <td><span className={styles.categoryTag}>{r.industry}</span></td>
+                          <td>{r.phone || <span className={styles.muted}>N/A</span>}</td>
+                          <td>
+                            <div className={styles.rating}>
+                              <Star size={14} fill="var(--status-meeting)" color="var(--status-meeting)" />
+                              {r.rating} <span className={styles.muted}>({r.reviewsCount})</span>
+                            </div>
+                          </td>
+                          <td>
+                            {r.website ? (
+                              <a href={r.website} target="_blank" className={styles.webLink}><Globe size={14} /> Visit</a>
+                            ) : <span className={styles.muted}>None</span>}
+                          </td>
+                          <td>
+                            <a href={r.googleMapsLink} target="_blank" className={styles.mapsBtn}><ExternalLink size={14} /></a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className={styles.grid}>
+                    {filteredResults.map(r => (
+                      <div key={r.id} className={styles.card}>
+                         <div className={styles.cardHeader}>
+                           <div className={styles.cardCategory}>{r.industry}</div>
+                           <div onClick={() => toggleSelection(r.id)}>
+                             {selectedIds.includes(r.id) ? <CheckCircle2 size={20} color="var(--accent-primary)" /> : <Square size={20} />}
+                           </div>
+                         </div>
+                         <h3 className={styles.cardName}>{r.name}</h3>
+                         <p className={styles.cardAddress}><MapPin size={12} /> {r.address}</p>
+                         <div className={styles.cardStats}>
+                            <div className={styles.rating}><Star size={14} fill="var(--status-meeting)" color="var(--status-meeting)" /> {r.rating}</div>
+                            <div className={styles.muted}>{r.reviewsCount} reviews</div>
+                         </div>
+                         <div className={styles.cardFooter}>
+                            {r.phone && <span className={styles.cardPhone}><Phone size={12}/> {r.phone}</span>}
+                            <div className={styles.cardLinks}>
+                               {r.website && <a href={r.website} target="_blank"><Globe size={16}/></a>}
+                               <a href={r.googleMapsLink} target="_blank"><ExternalLink size={16}/></a>
+                            </div>
+                         </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
+            )}
           </div>
-        </div>
-
-        <div className={styles.actionRow}>
-          <div className={styles.filters}>
-            <div className={styles.filterGroup}>
-              <label className={styles.label}>Website:</label>
-              <select className={styles.select} value={filterWebsite} onChange={(e) => setFilterWebsite(e.target.value)}>
-                <option value="any">Any</option>
-                <option value="yes">Has Website</option>
-                <option value="no">No Website</option>
-              </select>
-            </div>
-            <div className={styles.filterGroup}>
-              <label className={styles.label}>Min Reviews:</label>
-              <input type="number" className={styles.numberInput} placeholder="0" value={minReviews} onChange={(e) => setMinReviews(e.target.value)} />
-            </div>
-            <div className={styles.filterGroup}>
-              <label className={styles.label}>Min Rating:</label>
-              <input type="number" className={styles.numberInput} placeholder="0.0" step="0.1" value={minRating} onChange={(e) => setMinRating(e.target.value)} />
-            </div>
-          </div>
-
-          <button className={styles.searchBtn} onClick={handleSearch} disabled={isSearching}>
-            {isSearching ? <Loader2 size={18} className={styles.spinning} /> : <Search size={18} />}
-            {isSearching ? "Extracting..." : "Start Extraction"}
-          </button>
-        </div>
-      </section>
-
-      <section className={styles.panel} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div className={styles.resultsHeader}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>
-            Results ({filteredResults.length})
-          </h2>
-          {filteredResults.length > 0 && (
-            <div className={styles.bulkActions}>
-              <button className="btn btn-outline" onClick={handleExportCSV}>
-                <Download size={16} /> {selectedIds.length > 0 ? `Export Selected (${selectedIds.length})` : 'Export Specific Number'}
-              </button>
-              <button className="btn btn-primary" onClick={handleImport} disabled={selectedIds.length === 0}>
-                Import to Call Tool ({selectedIds.length})
-              </button>
-            </div>
-          )}
-        </div>
-
-        {results.length === 0 && !isSearching && (
-          <div className={styles.emptyState}>
-            <Search size={48} color="var(--border-color)" />
-            <p>Enter keywords and locations above to start finding leads.</p>
-          </div>
-        )}
-
-        {filteredResults.length > 0 && (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th style={{ width: '40px', cursor: 'pointer' }} onClick={selectAll}>
-                    {selectedIds.length === filteredResults.length && filteredResults.length > 0 ? (
-                      <CheckSquare size={18} color="var(--accent-primary)" />
-                    ) : (
-                      <Square size={18} color="var(--text-muted)" />
-                    )}
-                  </th>
-                  <th>Business Name</th>
-                  <th>Industry</th>
-                  <th>Contact</th>
-                  <th>Rating</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredResults.map(lead => (
-                  <tr key={lead.id}>
-                    <td onClick={() => toggleSelection(lead.id)} style={{ cursor: 'pointer' }}>
-                      {selectedIds.includes(lead.id) ? (
-                        <CheckSquare size={18} color="var(--accent-primary)" />
-                      ) : (
-                        <Square size={18} color="var(--text-muted)" />
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 500 }}>{lead.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{lead.address}</div>
-                    </td>
-                    <td>
-                      <span className={styles.tag} style={{ display: 'inline-block' }}>{lead.industry}</span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        {lead.phone ? (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={12} /> {lead.phone}</span>
-                        ) : <span style={{ color: 'var(--text-muted)' }}>No Phone</span>}
-                        
-                        {lead.website ? (
-                          <a href={lead.website} target="_blank" rel="noreferrer" className={styles.link} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            <Globe size={12} /> Website
-                          </a>
-                        ) : <span style={{ color: 'var(--text-muted)' }}>No Website</span>}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--status-meeting)' }}>
-                        <Star size={14} fill="currentColor" /> {lead.rating}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{lead.reviewsCount} reviews</div>
-                    </td>
-                    <td>
-                      <a href={lead.googleMapsLink} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>
-                        <ExternalLink size={14} /> Maps
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        </section>
+      </main>
     </div>
   );
 }
