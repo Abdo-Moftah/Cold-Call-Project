@@ -208,6 +208,53 @@ export const useLeadStore = create(
     await supabase.from('notes').delete().eq('id', noteId);
   },
 
+  findDuplicates: () => {
+    const { leads } = get();
+    const duplicates = [];
+    const phoneMap = new Map();
+    const nameMap = new Map();
+
+    leads.forEach(lead => {
+      const cleanPhone = lead.phone ? lead.phone.replace(/[^0-9]/g, '') : '';
+      if (cleanPhone && cleanPhone.length > 6) {
+        if (!phoneMap.has(cleanPhone)) phoneMap.set(cleanPhone, []);
+        phoneMap.get(cleanPhone).push(lead);
+      } else {
+        const cleanName = lead.name?.toLowerCase().trim() || '';
+        if (cleanName && cleanName !== 'unknown') {
+          if (!nameMap.has(cleanName)) nameMap.set(cleanName, []);
+          nameMap.get(cleanName).push(lead);
+        }
+      }
+    });
+
+    phoneMap.forEach(group => {
+      if (group.length > 1) duplicates.push({ type: 'phone', leads: group });
+    });
+
+    nameMap.forEach(group => {
+      if (group.length > 1) duplicates.push({ type: 'name', leads: group });
+    });
+
+    return duplicates;
+  },
+
+  resolveDuplicates: async (keepId, deleteIds) => {
+    if (deleteIds.length === 0) return;
+    set({ isUploading: true });
+    try {
+      await supabase.from('leads').delete().in('id', deleteIds);
+      set((state) => ({
+        leads: state.leads.filter(l => !deleteIds.includes(l.id)),
+        currentIndex: 0
+      }));
+    } catch (err) {
+      console.error("Error deleting duplicates:", err);
+    } finally {
+      set({ isUploading: false });
+    }
+  },
+
   deleteLead: async (id) => {
     set((state) => {
       const updatedLeads = state.leads.filter(lead => lead.id !== id);

@@ -251,11 +251,31 @@ export async function POST(request) {
       }
     }
 
-    // De-duplicate leads by Maps Link or Name+Address
+    // Strict De-duplication: By Phone, then by exact Name
     const uniqueLeadsMap = new Map();
     allLeads.forEach(lead => {
-      const key = lead.googleMapsLink || `${lead.name}-${lead.address}`;
-      if (!uniqueLeadsMap.has(key)) {
+      let key = null;
+      
+      const cleanPhone = lead.phone ? lead.phone.replace(/[^0-9]/g, '') : '';
+      if (cleanPhone && cleanPhone.length > 6) {
+        key = `phone_${cleanPhone}`;
+      } else if (lead.googleMapsLink) {
+        key = `link_${lead.googleMapsLink}`;
+      } else {
+        key = `name_${lead.name.toLowerCase().trim()}`;
+      }
+
+      // Also check if we already have this exact name to prevent same-name duplicates with different phones
+      const nameKey = `name_${lead.name.toLowerCase().trim()}`;
+      let isDuplicate = false;
+      for (const [existingKey, existingLead] of uniqueLeadsMap.entries()) {
+        if (existingKey === key || existingLead.name.toLowerCase().trim() === lead.name.toLowerCase().trim()) {
+          isDuplicate = true;
+          break;
+        }
+      }
+
+      if (!isDuplicate) {
         uniqueLeadsMap.set(key, lead);
       }
     });

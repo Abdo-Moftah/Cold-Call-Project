@@ -4,6 +4,7 @@ import { useLeadStore } from "@/stores/useLeadStore";
 import { Search, Upload, Filter, Users, PhoneCall, Calendar, XCircle, Phone, Download, Trash2 } from "lucide-react";
 import Papa from "papaparse";
 import { useRef, useEffect, useState } from "react";
+import DuplicateResolver from "./DuplicateResolver";
 
 export default function LeftSidebar() {
   const { 
@@ -25,6 +26,7 @@ export default function LeftSidebar() {
   } = useLeadStore();
   const fileInputRef = useRef(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
+  const [showResolver, setShowResolver] = useState(false);
 
   const handleExitSelect = () => {
     clearSelection();
@@ -172,13 +174,22 @@ export default function LeftSidebar() {
               <Download size={16} /> Export
             </button>
           </div>
-          <button 
-            className="btn btn-outline" 
-            style={{ width: '100%', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-            onClick={() => window.location.href = '/extractor'}
-          >
-            <Search size={16} color="var(--accent-primary)" /> Find Leads via Google Maps
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button 
+              className="btn btn-outline" 
+              style={{ flex: 1, justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              onClick={() => window.location.href = '/extractor'}
+            >
+              <Search size={16} color="var(--accent-primary)" /> Maps Scraper
+            </button>
+            <button 
+              className="btn btn-outline" 
+              style={{ flex: 1, justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              onClick={() => setShowResolver(true)}
+            >
+              <Trash2 size={16} color="var(--status-not-interested)" /> Check Duplicates
+            </button>
+          </div>
         </section>
 
         {/* Dashboard Stats */}
@@ -361,6 +372,8 @@ export default function LeftSidebar() {
           </div>
         </div>
       )}
+
+      {showResolver && <DuplicateResolver onClose={() => setShowResolver(false)} />}
     </aside>
   );
 }

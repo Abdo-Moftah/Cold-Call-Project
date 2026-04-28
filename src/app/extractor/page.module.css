@@ -270,6 +270,8 @@
   align-items: center;
   padding-top: 1.5rem;
   border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .filterBar {

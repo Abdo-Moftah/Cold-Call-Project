@@ -105,8 +105,8 @@ export default function ExtractorPage() {
     }
 
     setIsSearching(true);
-    setResults([]);
-    setSelectedIds([]);
+    // Don't clear results entirely, maybe the user wants to build a big list.
+    // We will append and deduplicate.
 
     try {
       const res = await fetch("/api/extract", {
@@ -122,7 +122,50 @@ export default function ExtractorPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Extraction failed");
-      setResults(data.leads || []);
+      
+      const newExtractedLeads = data.leads || [];
+      const currentCrmLeads = useLeadStore.getState().leads || [];
+
+      setResults(prev => {
+        const uniqueMap = new Map();
+        
+        // Helper to get a stable key
+        const getKey = (l) => {
+          const cleanPhone = l.phone ? l.phone.replace(/[^0-9]/g, '') : '';
+          if (cleanPhone && cleanPhone.length > 6) return `phone_${cleanPhone}`;
+          if (l.googleMapsLink) return `link_${l.googleMapsLink}`;
+          return `name_${l.name.toLowerCase().trim()}`;
+        };
+
+        // 1. Add currently displayed results to map
+        prev.forEach(l => uniqueMap.set(getKey(l), l));
+
+        // 2. Filter new leads against CRM
+        let addedCount = 0;
+        newExtractedLeads.forEach(lead => {
+          const key = getKey(lead);
+          const isNameMatch = currentCrmLeads.some(crm => crm.name?.toLowerCase().trim() === lead.name.toLowerCase().trim());
+          const isPhoneMatch = currentCrmLeads.some(crm => {
+            const crmPhone = crm.phone ? crm.phone.replace(/[^0-9]/g, '') : '';
+            const leadPhone = lead.phone ? lead.phone.replace(/[^0-9]/g, '') : '';
+            return crmPhone && crmPhone.length > 6 && crmPhone === leadPhone;
+          });
+
+          // If it's NOT in the CRM and NOT already in the results
+          if (!isNameMatch && !isPhoneMatch && !uniqueMap.has(key)) {
+            uniqueMap.set(key, lead);
+            addedCount++;
+          }
+        });
+
+        if (addedCount === 0 && newExtractedLeads.length > 0) {
+           alert("Found leads, but they are either already in the list or already exist in your CRM!");
+        }
+
+        return Array.from(uniqueMap.values());
+      });
+      
+      setSelectedIds([]);
     } catch (err) {
       alert(err.message);
     } finally {
