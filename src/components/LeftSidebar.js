@@ -22,7 +22,8 @@ export default function LeftSidebar() {
     toggleLeadSelection,
     selectAllVisible,
     clearSelection,
-    deleteSelectedLeads
+    deleteSelectedLeads,
+    importProgress
   } = useLeadStore();
   const fileInputRef = useRef(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -144,6 +145,28 @@ export default function LeftSidebar() {
 
       <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         
+        {/* Global Import Progress */}
+        {importProgress?.isImporting && (
+          <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-primary)', animation: 'pulse 2s infinite' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>
+              <span style={{ color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Upload size={14} className="spinning" /> Importing Leads...
+              </span>
+              <span>{importProgress.current} / {importProgress.total}</span>
+            </div>
+            <div style={{ width: '100%', height: '6px', background: 'var(--bg-primary)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div 
+                style={{ 
+                  height: '100%', 
+                  background: 'var(--accent-primary)', 
+                  width: `${(importProgress.current / importProgress.total) * 100}%`,
+                  transition: 'width 0.3s ease'
+                }} 
+              />
+            </div>
+          </div>
+        )}
+
         {/* Import & Export & Tools Section */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div style={{ display: 'flex', gap: '0.5rem' }}>

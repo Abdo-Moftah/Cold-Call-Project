@@ -12,6 +12,7 @@ export const useLeadStore = create(
   theme: 'default',
   cheatSheet: 'Common Objections:\n\n"Not Interested":\n"I completely understand, [Name]. Just so I don\'t bother you again, was it bad timing, or are you guys already squared away with [Service]?"\n\n"Send me an email":\n"I can definitely do that. But just to make sure I don\'t send you spam, what specifically are you guys struggling with right now?"',
   isUploading: false,
+  importProgress: { isImporting: false, current: 0, total: 0 },
   selectedIds: [],
   
   fetchLeads: async () => {
@@ -55,7 +56,12 @@ export const useLeadStore = create(
   setLeads: (leads) => set({ leads, currentIndex: 0 }),
   
   addLeads: async (newLeads) => {
-    set({ isUploading: true });
+    set({ 
+      isUploading: true, 
+      importProgress: { isImporting: true, current: 0, total: newLeads.length } 
+    });
+    let currentCount = 0;
+    
     try {
       const existingLeads = [...get().leads];
 
@@ -119,6 +125,10 @@ export const useLeadStore = create(
             }
           }
         }
+        
+        // Update progress
+        currentCount++;
+        set({ importProgress: { isImporting: true, current: currentCount, total: newLeads.length } });
       }
       
       await get().fetchLeads();
@@ -126,7 +136,10 @@ export const useLeadStore = create(
       console.error("Critical Upload Error:", err);
       alert("Something went wrong during the upload. Check console (F12) for details.");
     } finally {
-      set({ isUploading: false });
+      set({ 
+        isUploading: false,
+        importProgress: { isImporting: false, current: 0, total: 0 }
+      });
     }
   },
 

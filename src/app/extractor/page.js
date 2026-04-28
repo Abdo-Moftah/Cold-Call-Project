@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useLeadStore } from "@/stores/useLeadStore";
+import { useExtractorStore } from "@/stores/useExtractorStore";
 import { 
   ArrowLeft, Search, MapPin, Briefcase, Star, Globe, Phone, 
   ExternalLink, Download, CheckSquare, Square, X, Loader2, 
@@ -20,28 +21,28 @@ export default function ExtractorPage() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Search Inputs
-  const [keywords, setKeywords] = useState(["Web Design", "Software"]);
+  const { 
+    keywords, setKeywords, addKeyword, removeKeyword,
+    locations, setLocations, addLocation, removeLocation,
+    results, setResults, clearResults,
+    selectedIds, setSelectedIds,
+    filterWebsite, setFilterWebsite,
+    minReviews, setMinReviews,
+    minRating, setMinRating,
+    maxResultsLimit, setMaxResultsLimit,
+    viewMode, setViewMode
+  } = useExtractorStore();
+
+  const importProgress = useLeadStore(state => state.importProgress);
+
   const [keywordInput, setKeywordInput] = useState("");
-  const [locations, setLocations] = useState(["Cairo, Egypt"]);
   const [locationInput, setLocationInput] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [isTypingLocation, setIsTypingLocation] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   
   const suggestionsRef = useRef(null);
   const debounceTimer = useRef(null);
-
-  // Results State
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState([]);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [viewMode, setViewMode] = useState("table"); // "table" or "grid"
-
-  // UI Filters
-  const [filterWebsite, setFilterWebsite] = useState("any");
-  const [minReviews, setMinReviews] = useState("");
-  const [minRating, setMinRating] = useState("");
-  const [maxResultsLimit, setMaxResultsLimit] = useState("50");
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -58,10 +59,10 @@ export default function ExtractorPage() {
       e.preventDefault();
       const val = e.target.value.trim();
       if (type === "keyword") {
-        if (!keywords.includes(val)) setKeywords([...keywords, val]);
+        if (!keywords.includes(val)) addKeyword(val);
         setKeywordInput("");
       } else {
-        if (!locations.includes(val)) setLocations([...locations, val]);
+        if (!locations.includes(val)) addLocation(val);
         setLocationInput("");
         setLocationSuggestions([]);
       }
@@ -70,9 +71,9 @@ export default function ExtractorPage() {
 
   const removeTag = (type, indexToRemove) => {
     if (type === "keyword") {
-      setKeywords(keywords.filter((_, index) => index !== indexToRemove));
+      removeKeyword(indexToRemove);
     } else {
-      setLocations(locations.filter((_, index) => index !== indexToRemove));
+      removeLocation(indexToRemove);
     }
   };
 
@@ -105,8 +106,8 @@ export default function ExtractorPage() {
     }
 
     setIsSearching(true);
-    // Don't clear results entirely, maybe the user wants to build a big list.
-    // We will append and deduplicate.
+    // Clear old results as requested by user
+    clearResults();
 
     try {
       const res = await fetch("/api/extract", {
@@ -137,10 +138,7 @@ export default function ExtractorPage() {
           return `name_${l.name.toLowerCase().trim()}`;
         };
 
-        // 1. Add currently displayed results to map
-        prev.forEach(l => uniqueMap.set(getKey(l), l));
-
-        // 2. Filter new leads against CRM
+        // Filter new leads against CRM (we don't add previous results because we want to clear them)
         let addedCount = 0;
         newExtractedLeads.forEach(lead => {
           const key = getKey(lead);
@@ -151,7 +149,7 @@ export default function ExtractorPage() {
             return crmPhone && crmPhone.length > 6 && crmPhone === leadPhone;
           });
 
-          // If it's NOT in the CRM and NOT already in the results
+          // If it's NOT in the CRM and NOT already in this batch
           if (!isNameMatch && !isPhoneMatch && !uniqueMap.has(key)) {
             uniqueMap.set(key, lead);
             addedCount++;
@@ -159,7 +157,7 @@ export default function ExtractorPage() {
         });
 
         if (addedCount === 0 && newExtractedLeads.length > 0) {
-           alert("Found leads, but they are either already in the list or already exist in your CRM!");
+           alert("Found leads, but they already exist in your CRM!");
         }
 
         return Array.from(uniqueMap.values());
@@ -294,10 +292,18 @@ export default function ExtractorPage() {
               className={styles.extractBtn} 
               style={{ padding: '0.5rem 1rem', background: 'var(--accent-primary)', display: 'flex', gap: '0.5rem', alignItems: 'center' }}
               onClick={handleImportToCRM}
-              disabled={isSearching || filteredResults.length === 0}
+              disabled={isSearching || filteredResults.length === 0 || importProgress?.isImporting}
             >
-              <Phone size={16} />
-              Import to Call Tool
+              {importProgress?.isImporting ? (
+                <>
+                  <Loader2 size={16} className={styles.spin} /> 
+                  Importing ({importProgress.current}/{importProgress.total})
+                </>
+              ) : (
+                <>
+                  <Phone size={16} /> Import to Call Tool
+                </>
+              )}
             </button>
             <button className={styles.iconBtn} title="Download CSV" onClick={handleExportCSV}>
               <Download size={20} />
