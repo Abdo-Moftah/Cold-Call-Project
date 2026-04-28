@@ -16,8 +16,12 @@ export const useExtractorStore = create(
 
       setKeywords: (keywords) => set({ keywords }),
       setLocations: (locations) => set({ locations }),
-      setResults: (results) => set({ results }),
-      setSelectedIds: (selectedIds) => set({ selectedIds }),
+      setResults: (updater) => set((state) => ({ 
+        results: typeof updater === 'function' ? updater(state.results) : updater 
+      })),
+      setSelectedIds: (updater) => set((state) => ({
+        selectedIds: typeof updater === 'function' ? updater(state.selectedIds) : updater
+      })),
       setFilterWebsite: (filterWebsite) => set({ filterWebsite }),
       setMinReviews: (minReviews) => set({ minReviews }),
       setMinRating: (minRating) => set({ minRating }),

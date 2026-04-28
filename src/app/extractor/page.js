@@ -171,7 +171,8 @@ export default function ExtractorPage() {
     }
   };
 
-  const filteredResults = results.filter(lead => {
+  const safeResults = Array.isArray(results) ? results : [];
+  const filteredResults = safeResults.filter(lead => {
     if (minReviews && lead.reviewsCount < parseInt(minReviews)) return false;
     if (minRating && lead.rating < parseFloat(minRating)) return false;
     return true;
