@@ -15,7 +15,7 @@ export default function MainFocus() {
     if (status === 'Meeting Booked') {
       const title = encodeURIComponent(`Website Design Presentation`);
       const details = encodeURIComponent(`We'll hop on a quick 10-minute call to show you the website design I made for you.`);
-      const calUrl = `https://calendar.google.com/calendar/u/qubix.agency@gmail.com/r/eventedit?action=TEMPLATE&text=${title}&details=${details}`;
+      const calUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&authuser=qubix.agency@gmail.com&text=${title}&details=${details}`;
       window.open(calUrl, '_blank');
     }
     
