@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function POST(request) {
   let browser;
   try {
@@ -280,11 +290,11 @@ export async function POST(request) {
       }
     });
 
-    return NextResponse.json({ leads: Array.from(uniqueLeadsMap.values()) });
+    return NextResponse.json({ leads: Array.from(uniqueLeadsMap.values()) }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('Extraction Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
   } finally {
     if (browser) await browser.close();
   }

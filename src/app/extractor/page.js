@@ -110,7 +110,8 @@ export default function ExtractorPage() {
     clearResults();
 
     try {
-      const res = await fetch("/api/extract", {
+      const scraperUrl = process.env.NEXT_PUBLIC_SCRAPER_URL || "/api/extract";
+      const res = await fetch(scraperUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 

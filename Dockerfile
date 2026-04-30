@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.41.0-jammy
+FROM mcr.microsoft.com/playwright:v1.52.0-noble
 
 # Set working directory
 WORKDIR /app
@@ -8,6 +8,9 @@ COPY package.json package-lock.json ./
 
 # Install dependencies
 RUN npm ci
+
+# Install Playwright browsers
+RUN npx playwright install chromium
 
 # Copy the rest of the application
 COPY . .
