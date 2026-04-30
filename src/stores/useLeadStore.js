@@ -15,6 +15,39 @@ export const useLeadStore = create(
   importProgress: { isImporting: false, current: 0, total: 0 },
   selectedIds: [],
   
+  // Auth State
+  user: null,
+  profile: null,
+
+  login: async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    set({ user: data.user });
+    
+    // Fetch profile
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+    if (profile) {
+      set({ profile });
+    }
+    return data.user;
+  },
+
+  logout: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, profile: null });
+  },
+
+  checkUser: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      set({ user: session.user });
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (profile) set({ profile });
+    } else {
+      set({ user: null, profile: null });
+    }
+  },
+  
   fetchLeads: async () => {
     const { data: leads, error: leadsError } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
     const { data: notes, error: notesError } = await supabase.from('notes').select('*').order('created_at', { ascending: false });
