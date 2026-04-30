@@ -1,50 +1,38 @@
-import { NextResponse } from 'next/server';
+const express = require('express');
+const cors = require('cors');
+const { chromium } = require('playwright');
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders });
-}
+app.get('/', (req, res) => {
+  res.json({ status: 'Scraper API is running', version: '1.0.0' });
+});
 
-export async function POST(request) {
-  // Try to import Playwright dynamically - it won't be available on serverless platforms like Netlify
-  let chromium;
-  try {
-    const pw = await import('playwright');
-    chromium = pw.chromium;
-  } catch (e) {
-    return NextResponse.json({ 
-      error: 'Lead extraction is not available on this server. Please use the app locally (npm run dev) to extract leads, then import them to the CRM.',
-      serverless: true 
-    }, { status: 503, headers: corsHeaders });
-  }
-
+app.post('/api/extract', async (req, res) => {
   let browser;
   try {
-    const { locations, keywords, maxResults: reqMaxResults, filterWebsite = 'any' } = await request.json();
-    
+    const { locations, keywords, maxResults: reqMaxResults, filterWebsite = 'any' } = req.body;
     const maxResultsLimit = reqMaxResults ? Math.min(parseInt(reqMaxResults), 200) : 50;
 
     if (!locations || !locations.length || !keywords || !keywords.length) {
-      return NextResponse.json({ error: 'Missing locations or keywords' }, { status: 400, headers: corsHeaders });
+      return res.status(400).json({ error: 'Missing locations or keywords' });
     }
 
-    console.log('🚀 Starting Robust Scraper for:', { locations, keywords, maxResults: maxResultsLimit });
+    console.log('🚀 Starting extraction:', { locations, keywords, maxResults: maxResultsLimit });
 
-    browser = await chromium.launch({ 
+    browser = await chromium.launch({
       headless: true,
       args: [
         '--disable-blink-features=AutomationControlled',
         '--lang=en-US,en',
         '--no-sandbox',
-        '--disable-setuid-sandbox'
-      ] 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage'
+      ]
     });
-    
+
     const context = await browser.newContext({
       viewport: { width: 1280, height: 1000 },
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -57,11 +45,11 @@ export async function POST(request) {
       for (const keyword of keywords) {
         const query = `${keyword} in ${location}`;
         const page = await context.newPage();
-        
+
         try {
           const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(query)}?hl=en`;
           await page.goto(searchUrl);
-          
+
           // Handle cookie consent
           try {
             const consentSelectors = [
@@ -71,7 +59,6 @@ export async function POST(request) {
               'button:has-text("Accept all")',
               'button:has-text("Agree")'
             ];
-            
             for (const selector of consentSelectors) {
               const btn = page.locator(selector).first();
               if (await btn.isVisible({ timeout: 2000 })) {
@@ -96,7 +83,7 @@ export async function POST(request) {
 
           while (validLeadsForThisQuery.length < maxResultsLimit) {
             const currentDomCount = await page.locator('div.Nv2PK').count();
-            
+
             if (currentDomCount > processedIndex) {
               const newItemsData = await page.evaluate(({kw, loc, startIdx, endIdx}) => {
                 const items = Array.from(document.querySelectorAll('div.Nv2PK, div.UaMeBe, div.VkpYff')).slice(startIdx, endIdx);
@@ -104,7 +91,7 @@ export async function POST(request) {
                   const name = item.querySelector('div.fontHeadlineSmall, .NrDZNb, .qBF1Pd')?.innerText || '';
                   const link = item.querySelector('a.hfpxzc, a.V097gc')?.href || '';
                   const ratingText = item.querySelector('span.MW4etd, .fontBodyMedium span[aria-hidden="true"]')?.innerText || '';
-                  
+
                   const ratingContainer = item.querySelector('.ZkP5Je, [aria-label*="stars"], [aria-label*="نجمة"]');
                   const ariaLabel = ratingContainer ? ratingContainer.getAttribute('aria-label') : '';
                   let exactReviews = 0;
@@ -114,10 +101,10 @@ export async function POST(request) {
                       exactReviews = parseInt(reviewMatch[1].replace(/,/g, ''));
                     }
                   }
-                  
+
                   const rating = parseFloat(ratingText) || 0;
                   const reviews = exactReviews || parseInt(item.querySelector('span.UY7F9')?.innerText.replace(/[^0-9]/g, '')) || 0;
-                  
+
                   const fullText = item.innerText;
                   const lines = fullText.split('\n');
                   let category = '';
@@ -125,15 +112,15 @@ export async function POST(request) {
                   let phone = item.querySelector('span.UsdlK, .W4P9ed')?.innerText || '';
 
                   if (!phone) {
-                     const textPieces = item.innerText.split(/[\n·]/);
-                     for (let piece of textPieces) {
-                        piece = piece.trim();
-                        const digitCount = (piece.match(/\d/g) || []).length;
-                        if (digitCount >= 7 && piece.length <= 20 && /^[\d\s()+-]+$/.test(piece)) {
-                            phone = piece;
-                            break;
-                        }
-                     }
+                    const textPieces = item.innerText.split(/[\n·]/);
+                    for (let piece of textPieces) {
+                      piece = piece.trim();
+                      const digitCount = (piece.match(/\d/g) || []).length;
+                      if (digitCount >= 7 && piece.length <= 20 && /^[\d\s()+-]+$/.test(piece)) {
+                        phone = piece;
+                        break;
+                      }
+                    }
                   }
 
                   if (lines.length > 2) {
@@ -142,9 +129,7 @@ export async function POST(request) {
                       const parts = infoLine.split('·');
                       category = parts[0].trim();
                       const lastPart = parts[parts.length - 1].trim();
-                      if (lastPart !== phone) {
-                         address = lastPart;
-                      }
+                      if (lastPart !== phone) address = lastPart;
                     } else if (infoLine) {
                       category = infoLine.trim();
                     }
@@ -178,7 +163,7 @@ export async function POST(request) {
                   delete itemData.index;
                   delete itemData.hasWebsiteInList;
                   validLeadsForThisQuery.push(itemData);
-                  continue; 
+                  continue;
                 }
 
                 if (!itemData.hasWebsiteInList && itemData.googleMapsLink) {
@@ -193,19 +178,17 @@ export async function POST(request) {
                       }
                     });
 
-                    const langUrl = itemData.googleMapsLink.includes('?') 
-                      ? itemData.googleMapsLink + '&hl=en' 
+                    const langUrl = itemData.googleMapsLink.includes('?')
+                      ? itemData.googleMapsLink + '&hl=en'
                       : itemData.googleMapsLink + '?hl=en';
-                      
+
                     await detailPage.goto(langUrl, { waitUntil: 'domcontentloaded', timeout: 8000 });
-                    
+
                     const websiteLocator = detailPage.locator('a[data-item-id="authority"]');
                     await websiteLocator.waitFor({ state: 'attached', timeout: 2500 });
-                    
+
                     const deepWebsite = await websiteLocator.getAttribute('href');
-                    if (deepWebsite) {
-                      itemData.website = deepWebsite;
-                    }
+                    if (deepWebsite) itemData.website = deepWebsite;
                   } catch (e) {
                   } finally {
                     if (detailPage) await detailPage.close();
@@ -219,7 +202,7 @@ export async function POST(request) {
                 delete itemData.hasWebsiteInList;
                 validLeadsForThisQuery.push(itemData);
               }
-              
+
               processedIndex = currentDomCount;
             }
 
@@ -229,7 +212,7 @@ export async function POST(request) {
               const feed = document.querySelector(sel);
               if (feed) feed.scrollBy(0, 1500);
             }, feedSelector);
-            
+
             await page.waitForTimeout(1500);
 
             if (currentDomCount === prevDomCount) {
@@ -241,9 +224,9 @@ export async function POST(request) {
             prevDomCount = currentDomCount;
 
             const isEnd = await page.evaluate(() => {
-                return document.body.innerText.includes("reached the end") || 
-                       document.body.innerText.includes("نهاية القائمة") ||
-                       document.body.innerText.includes("You've reached the end");
+              return document.body.innerText.includes("reached the end") ||
+                     document.body.innerText.includes("نهاية القائمة") ||
+                     document.body.innerText.includes("You've reached the end");
             });
             if (isEnd) break;
           }
@@ -258,12 +241,11 @@ export async function POST(request) {
       }
     }
 
-    // Strict De-duplication
+    // De-duplication
     const uniqueLeadsMap = new Map();
     allLeads.forEach(lead => {
-      let key = null;
-      
       const cleanPhone = lead.phone ? lead.phone.replace(/[^0-9]/g, '') : '';
+      let key;
       if (cleanPhone && cleanPhone.length > 6) {
         key = `phone_${cleanPhone}`;
       } else if (lead.googleMapsLink) {
@@ -272,7 +254,6 @@ export async function POST(request) {
         key = `name_${lead.name.toLowerCase().trim()}`;
       }
 
-      const nameKey = `name_${lead.name.toLowerCase().trim()}`;
       let isDuplicate = false;
       for (const [existingKey, existingLead] of uniqueLeadsMap.entries()) {
         if (existingKey === key || existingLead.name.toLowerCase().trim() === lead.name.toLowerCase().trim()) {
@@ -280,18 +261,20 @@ export async function POST(request) {
           break;
         }
       }
-
-      if (!isDuplicate) {
-        uniqueLeadsMap.set(key, lead);
-      }
+      if (!isDuplicate) uniqueLeadsMap.set(key, lead);
     });
 
-    return NextResponse.json({ leads: Array.from(uniqueLeadsMap.values()) }, { headers: corsHeaders });
+    res.json({ leads: Array.from(uniqueLeadsMap.values()) });
 
   } catch (error) {
     console.error('Extraction Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
+    res.status(500).json({ error: error.message });
   } finally {
     if (browser) await browser.close();
   }
-}
+});
+
+const PORT = process.env.PORT || 7860;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Scraper API running on port ${PORT}`);
+});

@@ -123,6 +123,15 @@ export default function ExtractorPage() {
       });
 
       const data = await res.json();
+      
+      // Handle serverless platform (Netlify) where Playwright isn't available
+      if (data.serverless) {
+        setResults([]);
+        setIsSearching(false);
+        alert("⚠️ Lead extraction requires the desktop app.\n\nRun the app locally with 'npm run dev' to extract leads.\nYou can then import them to the CRM which syncs to this cloud version.\n\nAlternatively, you can import leads via CSV file.");
+        return;
+      }
+      
       if (!res.ok) throw new Error(data.error || "Extraction failed");
       
       const newExtractedLeads = data.leads || [];
