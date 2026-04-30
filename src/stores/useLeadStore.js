@@ -107,7 +107,11 @@ export const useLeadStore = create(
           }).select().single();
           
           if (error) {
-            console.error("Error inserting lead:", error);
+            console.error("Error inserting lead:", error.message, error.details, error.hint);
+            // If the error is about a missing column, it's likely a database schema mismatch
+            if (error.message.includes("column") || error.message.includes("not found")) {
+               console.warn("Schema mismatch detected. Ensure your 'leads' table has 'socialLink', 'website', and 'tags' columns.");
+            }
             continue;
           }
           if (data) {
@@ -126,7 +130,7 @@ export const useLeadStore = create(
           }
         }
         
-        // Update progress
+        // Update progress regardless of success/fail to prevent hanging at 0/100
         currentCount++;
         set({ importProgress: { isImporting: true, current: currentCount, total: newLeads.length } });
       }
