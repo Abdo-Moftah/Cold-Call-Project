@@ -111,6 +111,12 @@ export default function ExtractorPage() {
 
     try {
       const scraperUrl = process.env.NEXT_PUBLIC_SCRAPER_URL || "/api/extract";
+      console.log("Scraping with URL:", scraperUrl);
+      
+      if (!scraperUrl) {
+        throw new Error("Scraper URL is missing. Please check your environment variables.");
+      }
+
       const res = await fetch(scraperUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

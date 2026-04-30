@@ -346,7 +346,7 @@ export default function LeftSidebar() {
                     {lead.phone && !lead.phone.toUpperCase().includes('NA') && /\d/.test(lead.phone) && <Phone size={14} color="var(--status-meeting)" style={{ flexShrink: 0 }} />}
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {lead.status === 'Callback' ? <span style={{color: 'var(--status-callback)', fontWeight: 600}}>Needs Callback</span> : (lead.company || (!lead.phone.toUpperCase().includes('NA') ? lead.phone : ''))}
+                    {lead.status === 'Callback' ? <span style={{color: 'var(--status-callback)', fontWeight: 600}}>Needs Callback</span> : (lead.company || ((lead.phone && !lead.phone.toUpperCase().includes('NA')) ? lead.phone : ''))}
                   </div>
                 </div>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: lead.status === 'Meeting Booked' ? 'var(--status-meeting)' : `var(--status-${lead.status.toLowerCase().replace(' ', '-')})`, flexShrink: 0 }} />

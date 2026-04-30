@@ -86,56 +86,98 @@ app.post('/api/extract', async (req, res) => {
 
             if (currentDomCount > processedIndex) {
               const newItemsData = await page.evaluate(({kw, loc, startIdx, endIdx}) => {
-                const items = Array.from(document.querySelectorAll('div.Nv2PK, div.UaMeBe, div.VkpYff')).slice(startIdx, endIdx);
-                return items.map((item, localIndex) => {
-                  const name = item.querySelector('div.fontHeadlineSmall, .NrDZNb, .qBF1Pd')?.innerText || '';
-                  const link = item.querySelector('a.hfpxzc, a.V097gc')?.href || '';
-                  const ratingText = item.querySelector('span.MW4etd, .fontBodyMedium span[aria-hidden="true"]')?.innerText || '';
+                // More robust selectors for Google Maps results
+                const selectors = ['div.Nv2PK', 'div.UaMeBe', 'div.VkpYff', 'div[role="article"]', '.fontHeadlineSmall', '.qBF1Pd'];
+                let rawItems = [];
+                
+                // Try multiple ways to find the cards
+                const feeds = document.querySelectorAll('div[role="feed"]');
+                if (feeds.length > 0) {
+                  rawItems = Array.from(feeds[0].children).filter(el => el.innerText.length > 10);
+                } else {
+                  rawItems = Array.from(document.querySelectorAll('div.Nv2PK, div.UaMeBe, div.VkpYff'));
+                }
 
-                  const ratingContainer = item.querySelector('.ZkP5Je, [aria-label*="stars"], [aria-label*="نجمة"]');
-                  const ariaLabel = ratingContainer ? ratingContainer.getAttribute('aria-label') : '';
-                  let exactReviews = 0;
-                  if (ariaLabel) {
-                    const reviewMatch = ariaLabel.match(/([\d,]+)\s*(?:review|مراجعة)/i);
-                    if (reviewMatch && reviewMatch[1]) {
-                      exactReviews = parseInt(reviewMatch[1].replace(/,/g, ''));
-                    }
+                const items = rawItems.slice(startIdx, endIdx);
+                
+                return items.map((item, localIndex) => {
+                  // Robust Name detection
+                  const name = item.querySelector('.fontHeadlineSmall, .NrDZNb, .qBF1Pd, [role="heading"]')?.innerText || 
+                               item.querySelector('a[aria-label]')?.getAttribute('aria-label') || '';
+                  
+                  // Robust Link detection
+                  const link = item.querySelector('a.hfpxzc, a.V097gc, a[href*="/maps/place/"]')?.href || '';
+                  
+                  // Rating & Reviews
+                  const ratingText = item.querySelector('span.MW4etd, .fontBodyMedium span[aria-hidden="true"]')?.innerText || '0';
+                  const rating = parseFloat(ratingText.replace(',', '.')) || 0;
+                  
+                  const reviewsMatch = item.innerText.match(/\(([\d,]+)\)/) || item.innerText.match(/([\d,]+)\s+reviews/);
+                  const reviews = reviewsMatch ? parseInt(reviewsMatch[1].replace(/,/g, '')) : 0;
+
+                  // Extract Phone (regex fallback)
+                  let phone = item.querySelector('span.UsdlK, .W4P9ed')?.innerText || '';
+                  if (!phone) {
+                    const phoneMatch = item.innerText.match(/(\+?\d{1,4}[\s-]?\(?\d{1,3}\)?[\s-]?\d{3,4}[\s-]?\d{3,4})/);
+                    phone = phoneMatch ? phoneMatch[0] : '';
                   }
 
-                  const rating = parseFloat(ratingText) || 0;
-                  const reviews = exactReviews || parseInt(item.querySelector('span.UY7F9')?.innerText.replace(/[^0-9]/g, '')) || 0;
-
-                  const fullText = item.innerText;
-                  const lines = fullText.split('\n');
-                  let category = '';
-                  let address = '';
-                  let phone = item.querySelector('span.UsdlK, .W4P9ed')?.innerText || '';
-
-                  if (!phone) {
-                    const textPieces = item.innerText.split(/[\n·]/);
-                    for (let piece of textPieces) {
-                      piece = piece.trim();
-                      const digitCount = (piece.match(/\d/g) || []).length;
-                      if (digitCount >= 7 && piece.length <= 20 && /^[\d\s()+-]+$/.test(piece)) {
-                        phone = piece;
+                  // Robust Website extraction from the list card
+                  let website = '';
+                  const links = Array.from(item.querySelectorAll('a'));
+                  
+                  // 1. Look for specific website buttons/labels
+                  for (const a of links) {
+                    const href = a.href;
+                    if (!href) continue;
+                    
+                    const label = (a.getAttribute('aria-label') || '').toLowerCase();
+                    const text = (a.innerText || '').toLowerCase();
+                    const dataValue = (a.getAttribute('data-value') || '').toLowerCase();
+                    
+                    if (
+                      a.classList.contains('lS30S') || 
+                      label.includes('website') || 
+                      label.includes('موقع') ||
+                      text.includes('website') ||
+                      text.includes('موقع') ||
+                      dataValue.includes('website')
+                    ) {
+                      if (!href.includes('google.com/maps') && !href.includes('google.com/search')) {
+                        website = href;
                         break;
                       }
                     }
                   }
-
-                  if (lines.length > 2) {
-                    const infoLine = lines[1] || lines[2];
-                    if (infoLine?.includes('·')) {
-                      const parts = infoLine.split('·');
-                      category = parts[0].trim();
-                      const lastPart = parts[parts.length - 1].trim();
-                      if (lastPart !== phone) address = lastPart;
-                    } else if (infoLine) {
-                      category = infoLine.trim();
+                  
+                  // 2. Fallback: find any external link that isn't Google Maps
+                  if (!website) {
+                    for (const a of links) {
+                      const href = a.href;
+                      if (href && href.startsWith('http') && !href.includes('google.com/maps') && !href.includes('google.com/search') && !href.includes('google.com/url?q=https://www.google.com/maps')) {
+                         // Double check it's not the main place link
+                         if (!a.classList.contains('hfpxzc') && !a.classList.contains('V097gc')) {
+                            website = href;
+                            break;
+                         }
+                      }
                     }
                   }
-
-                  const website = item.querySelector('a.lS30S')?.href || '';
+                  
+                  // Category & Address from text lines
+                  const lines = item.innerText.split('\n').filter(l => l.trim().length > 0);
+                  let category = kw;
+                  let address = '';
+                  
+                  if (lines.length > 1) {
+                    // Usually line 0 is name, line 1 or 2 is category/address
+                    const infoLine = lines.find(l => l.includes('·')) || lines[1] || '';
+                    if (infoLine.includes('·')) {
+                      const parts = infoLine.split('·');
+                      category = parts[0].trim();
+                      address = parts[parts.length - 1].trim();
+                    }
+                  }
 
                   return {
                     index: startIdx + localIndex,
@@ -152,7 +194,7 @@ app.post('/api/extract', async (req, res) => {
                     searchKeyword: kw,
                     searchLocation: loc
                   };
-                }).filter(item => item.name);
+                }).filter(item => item.name && item.name.length > 1);
               }, {kw: keyword, loc: location, startIdx: processedIndex, endIdx: currentDomCount});
 
               for (const itemData of newItemsData) {
